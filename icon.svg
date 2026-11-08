@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Dayline icon">
+  <rect width="512" height="512" rx="96" fill="#101820"/>
+  <circle cx="256" cy="256" r="160" fill="none" stroke="#f6f1e8" stroke-width="36" opacity="0.24"/>
+  <path d="M256 96a160 160 0 0 1 139 239" fill="none" stroke="#ec7357" stroke-width="38" stroke-linecap="round"/>
+  <path d="M256 96a160 160 0 0 0-139 239" fill="none" stroke="#79a7d3" stroke-width="38" stroke-linecap="round"/>
+  <rect x="150" y="244" width="212" height="36" rx="18" fill="#f0bc67"/>
+  <rect x="238" y="150" width="36" height="212" rx="18" fill="#b7d67d"/>
+</svg>

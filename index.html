@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#101820">
+    <meta name="description" content="Dayline is a time awareness app for seeing where the day is going and using the rest intentionally.">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="stylesheet" href="styles.css">
+    <title>Dayline: Time Awareness</title>
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="topbar" aria-label="App header">
+        <div>
+          <p class="eyebrow">Dayline</p>
+          <h1>Make today visible.</h1>
+        </div>
+        <button class="icon-button" id="openSettings" type="button" aria-label="Open settings" title="Settings">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7Z"></path>
+            <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.04.04a2 2 0 0 1-2.83 2.83l-.04-.04A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .56l-.04.04a2 2 0 0 1-3.92-.94v-.06A1.7 1.7 0 0 0 9 17.5a1.7 1.7 0 0 0-1.88.34l-.04.04a2 2 0 0 1-2.83-2.83l.04-.04A1.7 1.7 0 0 0 4.6 13a1.7 1.7 0 0 0-.56-1l-.04-.04a2 2 0 0 1 .94-3.92H5a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.34-1.88l-.04-.04a2 2 0 0 1 2.83-2.83l.04.04A1.7 1.7 0 0 0 11 4.6a1.7 1.7 0 0 0 1-.56L12.04 4a2 2 0 0 1 3.92.94V5a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.88-.34l.04-.04a2 2 0 0 1 2.83 2.83l-.04.04A1.7 1.7 0 0 0 19.4 11c.39.54.39 1.46 0 2Z"></path>
+          </svg>
+        </button>
+      </section>
+
+      <section class="setup-panel" id="setupPanel" aria-labelledby="setupTitle">
+        <div class="section-heading">
+          <p class="eyebrow" id="setupEyebrow">Setup</p>
+          <h2 id="setupTitle">Define your usable day.</h2>
+        </div>
+        <p class="setup-lead" id="setupLead" hidden>Two times, and you are in. Everything else can wait.</p>
+        <form id="settingsForm" class="settings-form">
+          <label>
+            <span>Wake-up time</span>
+            <input id="wakeTime" name="wakeTime" type="time" required>
+          </label>
+          <label>
+            <span>Bedtime</span>
+            <input id="bedTime" name="bedTime" type="time" required>
+          </label>
+          <fieldset id="defaultViewField">
+            <legend>Default first view</legend>
+            <div class="segmented-control">
+              <label>
+                <input type="radio" name="defaultView" value="progress" checked>
+                <span>Day percent</span>
+              </label>
+              <label>
+                <input type="radio" name="defaultView" value="countdown">
+                <span>Bedtime countdown</span>
+              </label>
+            </div>
+          </fieldset>
+          <button class="primary-button" id="settingsSubmit" type="submit">Save setup</button>
+        </form>
+        <p class="privacy-note">Everything you write stays on this device.</p>
+        <section class="test-report" id="testReport" aria-labelledby="testReportTitle" hidden>
+          <div>
+            <p class="eyebrow">Test report</p>
+            <h2 id="testReportTitle">Local MVP signals</h2>
+          </div>
+          <dl class="metrics-grid">
+            <div>
+              <dt>Recaps</dt>
+              <dd id="metricRecaps">0</dd>
+            </div>
+            <div>
+              <dt>Journals</dt>
+              <dd id="metricJournals">0</dd>
+            </div>
+            <div>
+              <dt>Recap shares</dt>
+              <dd id="metricReceipts">0</dd>
+            </div>
+          </dl>
+          <button class="secondary-button full-button" id="copyTestReport" type="button">Copy test report</button>
+        </section>
+      </section>
+
+      <section class="dashboard" id="dashboard" hidden>
+        <div class="mode-row" role="tablist" aria-label="Main view">
+          <button class="mode-button" id="progressMode" type="button" role="tab" aria-selected="true">Day percent</button>
+          <button class="mode-button" id="countdownMode" type="button" role="tab" aria-selected="false">Countdown</button>
+        </div>
+
+        <section class="hero-panel" aria-live="polite">
+          <div class="hero-status-row">
+            <div class="time-label" id="timeLabel">Day progress</div>
+            <div class="hero-verdict" id="heroVerdict">Still yours</div>
+          </div>
+          <div class="hero-number" id="heroNumber">0%</div>
+          <div class="hero-subtext" id="heroSubtext">Your usable day is waiting to start.</div>
+          <div class="progress-track" aria-hidden="true">
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+          <dl class="day-signal-grid" aria-label="Current day signals">
+            <div>
+              <dt>Used</dt>
+              <dd id="statDayUsed">0%</dd>
+            </div>
+            <div>
+              <dt>Left</dt>
+              <dd id="statTimeLeft">0h 00m</dd>
+            </div>
+            <div>
+              <dt>Scroll tax</dt>
+              <dd id="statScrollTax">Not logged</dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="recap-action-panel" aria-labelledby="recapActionTitle">
+          <h2 id="recapActionTitle" class="sr-only">Reality check</h2>
+          <button class="primary-button full-button reality-button" id="openRecap" type="button">
+            <span>Run the reality check</span>
+            <small>30 sec check-in</small>
+          </button>
+        </section>
+
+        <nav class="quick-tools" aria-label="Secondary tools">
+          <button class="tool-button" id="openJournal" type="button" aria-label="Open night journal" title="Night journal">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 4.5A2.5 2.5 0 0 1 7.5 2H19v17H7.5A2.5 2.5 0 0 0 5 21.5v-17Z"></path>
+              <path d="M5 4.5A2.5 2.5 0 0 1 7.5 7H19"></path>
+              <path d="m14.5 14.5 4-4 1.5 1.5-4 4-2 .5.5-2Z"></path>
+            </svg>
+            <span>Journal</span>
+          </button>
+          <button class="tool-button" id="openReceipt" type="button" aria-label="Open day recap" title="Day recap">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M7 3h10a2 2 0 0 1 2 2v16l-3-1.5-2 1.5-2-1.5-2 1.5-2-1.5L5 21V5a2 2 0 0 1 2-2Z"></path>
+              <path d="M8.5 8h7"></path>
+              <path d="M8.5 12h7"></path>
+              <path d="M8.5 16h4"></path>
+            </svg>
+            <span>Recap</span>
+          </button>
+          <button class="tool-button" id="openNotes" type="button" aria-label="Open recent notes" title="Recent notes">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 3h9l3 3v15H6V3Z"></path>
+              <path d="M14 3v4h4"></path>
+              <path d="M9 11h6"></path>
+              <path d="M9 15h6"></path>
+              <path d="M9 19h4"></path>
+            </svg>
+            <span>Notes</span>
+          </button>
+        </nav>
+      </section>
+    </main>
+
+    <div class="modal-backdrop feature-backdrop" id="journalModal" hidden>
+      <section class="modal-card feature-card" role="dialog" aria-modal="true" aria-labelledby="journalTitle">
+        <button class="close-button" id="closeJournal" type="button" aria-label="Close night journal" title="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+        <section class="journal-panel" aria-labelledby="journalTitle">
+          <div class="section-heading compact">
+            <p class="eyebrow">Night journal</p>
+            <h2 id="journalTitle">Close the loop.</h2>
+          </div>
+          <form id="journalForm" class="journal-form">
+            <label>
+              <span>Long-term goals</span>
+              <textarea id="longTermGoals" rows="3" placeholder="What are you building toward over the next months or years?"></textarea>
+            </label>
+            <label>
+              <span>Reflection on today</span>
+              <textarea id="dayReflection" rows="3" placeholder="What happened today? What did you avoid?"></textarea>
+            </label>
+            <label>
+              <span>Tomorrow's goals</span>
+              <textarea id="tomorrowGoals" rows="3" placeholder="What are the concrete goals for tomorrow?"></textarea>
+            </label>
+            <div class="form-actions">
+              <button class="primary-button" type="submit">Save journal</button>
+              <button class="secondary-button" id="clearJournal" type="button">Clear fields</button>
+            </div>
+          </form>
+        </section>
+      </section>
+    </div>
+
+    <div class="modal-backdrop feature-backdrop" id="receiptModal" hidden>
+      <section class="modal-card feature-card" role="dialog" aria-modal="true" aria-labelledby="receiptTitle">
+        <button class="close-button" id="closeReceipt" type="button" aria-label="Close day recap" title="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+        <section class="receipt-section day-recap-section" aria-labelledby="receiptTitle">
+          <div class="section-heading compact">
+            <p class="eyebrow">Day recap</p>
+            <h2 id="receiptTitle">Your day, wrapped.</h2>
+          </div>
+
+          <div class="recap-story" id="dayRecapStory" role="region" tabindex="0" aria-label="Day recap story. Tap the left edge for previous, or the right edge for next." aria-live="polite">
+            <div class="story-progress" aria-hidden="true">
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+
+            <article class="recap-slide is-active" data-slide="0">
+              <p class="recap-kicker">Usable day</p>
+              <h3><span id="recapStoryPercent">0%</span> gone</h3>
+              <p id="recapStoryVerdict">The day is still moving.</p>
+              <div class="recap-route" aria-hidden="true">
+                <span id="recapStoryRoute"></span>
+              </div>
+              <dl class="recap-metric-row">
+                <div>
+                  <dt>Left</dt>
+                  <dd id="recapStoryTimeLeft">0h 00m</dd>
+                </div>
+                <div>
+                  <dt>Pace</dt>
+                  <dd id="recapStoryPace">Live</dd>
+                </div>
+              </dl>
+            </article>
+
+            <article class="recap-slide" data-slide="1" aria-hidden="true">
+              <p class="recap-kicker">Scroll tax</p>
+              <h3 id="recapStoryScroll">Not logged</h3>
+              <p id="recapStoryScrollNote">Run a reality check to turn the recap into a real score.</p>
+              <div class="recap-tax-meter" aria-hidden="true">
+                <span id="recapStoryTaxFill"></span>
+              </div>
+            </article>
+
+            <article class="recap-slide" data-slide="2" aria-hidden="true">
+              <p class="recap-kicker">Goal work</p>
+              <h3><span id="recapStoryGoalScore">5</span>/10</h3>
+              <p id="recapStoryGoalDescriptor">Some real work</p>
+              <div class="recap-effort-bar" aria-hidden="true">
+                <span id="recapStoryGoalFill"></span>
+              </div>
+            </article>
+
+            <article class="recap-slide" data-slide="3" aria-hidden="true">
+              <p class="recap-kicker">Comeback window</p>
+              <h3 id="recapStoryMessage">You still have time.</h3>
+              <p class="recap-tomorrow" id="recapStoryTomorrow">Tomorrow is still unclaimed.</p>
+              <button class="primary-button recap-share-button" id="showRecapPoster" type="button">Share recap</button>
+            </article>
+          </div>
+
+          <section class="poster-share-panel" id="posterSharePanel" aria-labelledby="posterShareTitle" hidden>
+            <div class="section-heading compact">
+              <p class="eyebrow">Share preview</p>
+              <h3 id="posterShareTitle">Poster ready.</h3>
+            </div>
+            <div class="receipt-preview">
+              <canvas id="receiptCanvas" width="1080" height="1350" aria-label="Day recap poster"></canvas>
+            </div>
+            <div class="form-actions">
+              <button class="primary-button" id="downloadReceipt" type="button">Save poster</button>
+              <button class="secondary-button" id="copyReceipt" type="button">Copy caption</button>
+            </div>
+            <button class="secondary-button full-button" id="hideRecapPoster" type="button">Back to recap</button>
+          </section>
+
+          <div class="recap-nav-actions" aria-label="Day recap navigation" hidden>
+            <button class="secondary-button" id="recapPrev" type="button">Back</button>
+            <button class="secondary-button" id="recapNext" type="button">Next</button>
+          </div>
+        </section>
+      </section>
+    </div>
+
+    <div class="modal-backdrop feature-backdrop" id="notesModal" hidden>
+      <section class="modal-card feature-card" role="dialog" aria-modal="true" aria-labelledby="historyTitle">
+        <button class="close-button" id="closeNotes" type="button" aria-label="Close recent notes" title="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+        <section class="history-panel" aria-labelledby="historyTitle">
+          <div class="section-heading compact">
+            <p class="eyebrow">Recent notes</p>
+            <h2 id="historyTitle">Review yesterday before tonight.</h2>
+          </div>
+          <div id="historyList" class="history-list"></div>
+        </section>
+      </section>
+    </div>
+
+    <div class="modal-backdrop" id="recapModal" hidden>
+      <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="recapTitle">
+        <div class="section-heading compact">
+          <p class="eyebrow">Reality check</p>
+          <h2 id="recapTitle">What did the day cost so far?</h2>
+        </div>
+        <aside class="goal-reminder" id="goalReminder" hidden>
+          <p class="eyebrow">Pinned from last night</p>
+          <h3>Today's goals</h3>
+          <ul id="goalReminderList"></ul>
+        </aside>
+        <form id="recapForm" class="recap-form">
+          <fieldset>
+            <legend>Time lost scrolling so far</legend>
+            <div class="time-input-row">
+              <label class="time-wheel-label">
+                <span>Hours</span>
+                <input id="scrollHours" name="scrollHours" type="hidden" value="0">
+                <div class="wheel-control" id="scrollHoursWheel" data-input="scrollHours" data-min="0" data-max="18" data-pad="0" role="spinbutton" tabindex="0" aria-label="Hours lost scrolling" aria-valuemin="0" aria-valuemax="18" aria-valuenow="0"></div>
+              </label>
+              <label class="time-wheel-label">
+                <span>Minutes</span>
+                <input id="scrollMinutes" name="scrollMinutes" type="hidden" value="0">
+                <div class="wheel-control" id="scrollMinutesWheel" data-input="scrollMinutes" data-min="0" data-max="59" data-pad="2" role="spinbutton" tabindex="0" aria-label="Minutes lost scrolling" aria-valuemin="0" aria-valuemax="59" aria-valuenow="0"></div>
+              </label>
+            </div>
+          </fieldset>
+          <fieldset class="goal-work-fieldset">
+            <legend>Work toward your goals</legend>
+            <div class="goal-scale-header">
+              <span id="goalWorkDescriptor">Some real work</span>
+              <output id="goalWorkOutput" for="goalWorkScore">5/10</output>
+            </div>
+            <label class="sr-only" for="goalWorkScore">How much did you work toward your goals?</label>
+            <input id="goalWorkScore" name="goalWorkScore" type="range" min="0" max="10" step="1" value="5">
+            <div class="scale-labels" aria-hidden="true">
+              <span>Ignored them</span>
+              <span>Protected them</span>
+            </div>
+          </fieldset>
+          <div class="form-actions">
+            <button class="primary-button" type="submit">Validate</button>
+            <button class="secondary-button" id="cancelRecap" type="button">Not now</button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <div class="modal-backdrop awareness-backdrop" id="awarenessModal" hidden>
+      <section class="modal-card awareness-card" role="dialog" aria-modal="true" aria-label="Awareness reminder">
+        <p id="awarenessMessage" class="message-text">Use the rest of the day deliberately.</p>
+        <button class="primary-button full-button" id="closeAwareness" type="button">Take the next hour back</button>
+      </section>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="app.js" defer></script>
+  </body>
+</html>

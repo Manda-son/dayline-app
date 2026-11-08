@@ -1,0 +1,32 @@
+{
+  "name": "Dayline: Time Awareness",
+  "short_name": "Dayline",
+  "description": "A time awareness app for seeing where the day is going and using the rest intentionally.",
+  "id": "./",
+  "start_url": ".",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#101820",
+  "theme_color": "#101820",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-const CACHE_NAME = "dayline-mvp-v18";
+const CACHE_NAME = "dayline-mvp-v19";
 const APP_ASSETS = [
   "./",
   "./index.html",

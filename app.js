@@ -321,18 +321,26 @@ function renderHero(stats) {
     els.timeLabel.textContent = "Bedtime countdown";
     els.heroNumber.classList.add("is-clock");
     els.heroNumber.textContent = stats.countdownShort;
-    els.heroSubtext.textContent = stats.dayStarted
-      ? `${stats.remainingLong} before your planned shutdown. Spend the rest deliberately.`
-      : `Your usable day starts in ${stats.startsInLong}. Bedtime is still ${stats.timeUntilBedLong} away.`;
+    if (stats.pastBedtime) {
+      els.heroSubtext.textContent = `You are ${stats.overtimeLong} past bedtime. The usable day is spent.`;
+    } else {
+      els.heroSubtext.textContent = stats.dayStarted
+        ? `${stats.remainingLong} before your planned shutdown. Spend the rest deliberately.`
+        : `Your usable day starts in ${stats.startsInLong}. Bedtime is still ${stats.timeUntilBedLong} away.`;
+    }
     return;
   }
 
   els.timeLabel.textContent = "Day progress";
   els.heroNumber.classList.remove("is-clock");
   els.heroNumber.textContent = `${dayPercent}%`;
-  els.heroSubtext.textContent = stats.dayStarted
-    ? `${stats.elapsedLong} used. ${stats.remainingLong} left before bedtime.`
-    : `Your usable day has not started yet. Wake-up is in ${stats.startsInLong}.`;
+  if (stats.pastBedtime) {
+    els.heroSubtext.textContent = `Your usable day is over. You are ${stats.overtimeLong} past bedtime.`;
+  } else {
+    els.heroSubtext.textContent = stats.dayStarted
+      ? `${stats.elapsedLong} used. ${stats.remainingLong} left before bedtime.`
+      : `Your usable day has not started yet. Wake-up is in ${stats.startsInLong}.`;
+  }
 }
 
 function renderDaySignals(stats) {
@@ -342,11 +350,13 @@ function renderDaySignals(stats) {
 
   els.statDayUsed.textContent = `${dayPercent}%`;
   els.statTimeLeft.textContent = stats.remainingShort;
-  els.statScrollTax.textContent = scrollingMinutes ? formatMinutesAsWords(scrollingMinutes) : "Not logged";
+  els.statScrollTax.textContent = formatScrollTax(state.lastRecap);
   // "Not logged" cannot fit a third of the row at the value type size.
   // Real numbers stay large; only the placeholder steps down.
-  els.statScrollTax.classList.toggle("is-empty", !scrollingMinutes);
-  els.heroVerdict.textContent = getHeroVerdict(dayPercent, scrollingMinutes, progressFeeling);
+  els.statScrollTax.classList.toggle("is-empty", !isRecapLogged(state.lastRecap));
+  els.heroVerdict.textContent = stats.pastBedtime
+    ? "Past bedtime"
+    : getHeroVerdict(dayPercent, scrollingMinutes, progressFeeling);
 }
 
 function renderRecapAvailability(stats) {
@@ -440,7 +450,7 @@ function getFeatureModal(feature) {
 }
 
 function isRecapAvailable(stats) {
-  return stats.dayStarted && stats.remainingMs <= RECAP_UNLOCK_WINDOW_MS;
+  return stats.pastBedtime || (stats.dayStarted && stats.remainingMs <= RECAP_UNLOCK_WINDOW_MS);
 }
 
 function getGoalWorkScore() {
@@ -587,10 +597,13 @@ function getTodayGoalsFromLastNight() {
   return splitGoalLines(todaysGoalsEntry.tomorrowGoals || todaysGoalsEntry.tomorrowPlan).slice(0, 4);
 }
 
+// Split on line breaks, semicolons, bullets and spaced dashes (" - "), never on a
+// hyphen inside a word: "follow-up", "Jean-Pierre" and "30-minute" are one goal.
+// A leading list dash ("- Gym") is dropped; a minus sign ("-5kg") is kept.
 function splitGoalLines(text) {
   return String(text)
-    .split(/\n|;|\u2022|-/)
-    .map((line) => line.trim())
+    .split(/\n|;|\u2022|\s[-\u2013\u2014]\s/)
+    .map((line) => line.replace(/^\s*[-*\u2013\u2014]\s+/, "").trim())
     .filter(Boolean);
 }
 
@@ -893,12 +906,15 @@ function renderRecapStory(stats) {
 
   const latest = getDraftJournal();
   const dayPercent = Math.round(stats.percent);
+  const logged = isRecapLogged(state.lastRecap);
   const scrollMinutes = state.lastRecap.scrollingMinutes || 0;
   const goalScore = getStoredGoalWorkScore();
   const verdict = getReceiptVerdict(stats, state.lastRecap);
-  const scrollText = scrollMinutes ? formatMinutesAsWords(scrollMinutes) : "Not logged";
+  const scrollText = formatScrollTax(state.lastRecap);
   const scrollFill = Math.min(100, Math.round((scrollMinutes / 360) * 100));
-  const pace = dayPercent >= 80 ? "Final stretch" : dayPercent >= 55 ? "Middle heat" : "Early window";
+  const pace = stats.pastBedtime
+    ? "Past bedtime"
+    : dayPercent >= 80 ? "Final stretch" : dayPercent >= 55 ? "Middle heat" : "Early window";
   const message = state.currentMessage || "You still have time. Spend it like it counts.";
   const tomorrow = latest.tomorrowGoals || "Tomorrow is still unclaimed.";
 
@@ -908,13 +924,14 @@ function renderRecapStory(stats) {
   els.recapStoryTimeLeft.textContent = stats.remainingShort;
   els.recapStoryPace.textContent = pace;
   els.recapStoryScroll.textContent = scrollText;
-  els.recapStoryScrollNote.textContent = scrollMinutes
+  els.recapStoryScrollNote.textContent = logged
     ? `${scrollMinutes} minutes pulled out of the day.`
     : "Run a reality check to turn the recap into a real score.";
   els.recapStoryTaxFill.style.width = `${scrollFill}%`;
-  els.recapStoryGoalScore.textContent = String(goalScore);
-  els.recapStoryGoalDescriptor.textContent = getGoalWorkDescriptor(goalScore);
-  els.recapStoryGoalFill.style.width = `${goalScore * 10}%`;
+  // No reality check, no score: never present the slider's default as the user's answer.
+  els.recapStoryGoalScore.textContent = logged ? String(goalScore) : "\u2013";
+  els.recapStoryGoalDescriptor.textContent = logged ? getGoalWorkDescriptor(goalScore) : "No score without a reality check.";
+  els.recapStoryGoalFill.style.width = logged ? `${goalScore * 10}%` : "0%";
   els.recapStoryMessage.textContent = message;
   els.recapStoryTomorrow.textContent = tomorrow;
 }
@@ -986,12 +1003,13 @@ function renderReceipt(stats) {
   const width = canvas.width;
   const height = canvas.height;
   const dayPercent = Math.round(stats.percent);
-  const scrollText = state.lastRecap.scrollingMinutes
-    ? formatMinutesAsWords(state.lastRecap.scrollingMinutes)
-    : "Not logged";
+  const logged = isRecapLogged(state.lastRecap);
+  const scrollText = formatScrollTax(state.lastRecap);
   const verdict = getReceiptVerdict(stats, state.lastRecap);
   const productivityScore = getProductivityScore(stats, state.lastRecap);
-  const feedback = getPosterFeedback(stats, state.lastRecap, productivityScore);
+  const feedback = logged
+    ? getPosterFeedback(stats, state.lastRecap, productivityScore)
+    : "No reality check yet. Run one to put an honest score on today.";
 
   ctx.clearRect(0, 0, width, height);
   ctx.textAlign = "left";
@@ -1025,7 +1043,8 @@ function renderReceipt(stats) {
   ctx.fillStyle = "#b8c2bf";
   ctx.font = "700 28px Arial";
   ctx.textAlign = "right";
-  ctx.fillText(formatDate(new Date()), width - 130, 169);
+  // The day being recapped, not the calendar date: after midnight they differ.
+  ctx.fillText(formatDate(stats.cycleStart), width - 130, 169);
   ctx.textAlign = "left";
 
   ctx.fillStyle = "#f6f1e8";
@@ -1053,7 +1072,7 @@ function renderReceipt(stats) {
   drawRoundRect(ctx, 135, 645, fillWidth, 36, Math.min(18, fillWidth / 2), bar);
 
   drawReceiptCard(ctx, 130, 730, 390, 155, "SCROLL TAX", scrollText, "#ec7357");
-  drawReceiptCard(ctx, 560, 730, 390, 155, "PRODUCTIVITY", `${productivityScore}/100`, "#b7d67d");
+  drawReceiptCard(ctx, 560, 730, 390, 155, "PRODUCTIVITY", logged ? `${productivityScore}/100` : "Not logged", "#b7d67d");
 
   drawRoundRect(ctx, 130, 930, 820, 245, 24, "rgba(246, 241, 232, 0.08)", "rgba(246, 241, 232, 0.16)");
   ctx.fillStyle = "#f0bc67";
@@ -1216,11 +1235,12 @@ function downloadReceipt() {
 
 async function copyReceiptText() {
   const stats = getDayStats(new Date());
-  const scroll = state.lastRecap.scrollingMinutes ? formatMinutesAsWords(state.lastRecap.scrollingMinutes) : "not logged";
-  const productivityScore = getProductivityScore(stats, state.lastRecap);
+  const logged = isRecapLogged(state.lastRecap);
+  const scroll = logged ? formatScrollTax(state.lastRecap) : "not logged";
+  const productivity = logged ? `${getProductivityScore(stats, state.lastRecap)}/100` : "not logged";
   const text = [
     `Dayline wrapped my day: ${Math.round(stats.percent)}% of my usable day is gone.`,
-    `Scroll tax: ${scroll}. Productivity score: ${productivityScore}/100.`,
+    `Scroll tax: ${scroll}. Productivity score: ${productivity}.`,
     "Would you share your day recap?"
   ].join("\n");
 
@@ -1259,7 +1279,7 @@ function buildTestReport() {
     `Recaps completed: ${counts.recap_completed || 0}`,
     `Journals saved: ${counts.journal_saved || 0}`,
     `Recaps saved/copied: ${(counts.receipt_saved || 0) + (counts.receipt_text_copied || 0)}`,
-    `Last scrolling input: ${state.lastRecap.scrollingMinutes ? formatMinutesAsWords(state.lastRecap.scrollingMinutes) : "not logged"}`,
+    `Last scrolling input: ${isRecapLogged(state.lastRecap) ? formatScrollTax(state.lastRecap) : "not logged"}`,
     "",
     "Recent events:",
     latestEvents.length ? latestEvents.join("\n") : "- none yet"
@@ -1267,17 +1287,25 @@ function buildTestReport() {
 }
 
 function getDayStats(now) {
-  const active = getActiveCycle(now, state.settings.wakeTime, state.settings.bedTime);
-  const totalMs = active.end - active.start;
-  const elapsedMs = clamp(now - active.start, 0, totalMs);
-  const remainingMs = clamp(active.end - now, 0, totalMs);
-  const startsInMs = Math.max(active.start - now, 0);
-  const timeUntilBedMs = Math.max(active.end - now, 0);
+  const { wakeTime, bedTime } = state.settings;
+  const active = getActiveCycle(now, wakeTime, bedTime);
+  // Someone still up after bedtime is still in the day that just ended. Without
+  // this they are told their day "has not started yet" and the recap re-locks.
+  const ended = now < active.start ? getEndedCycle(now, wakeTime, bedTime, active) : null;
+  const cycle = ended || active;
+  const totalMs = cycle.end - cycle.start;
+  const elapsedMs = clamp(now - cycle.start, 0, totalMs);
+  const remainingMs = clamp(cycle.end - now, 0, totalMs);
+  const startsInMs = Math.max(cycle.start - now, 0);
+  const timeUntilBedMs = Math.max(cycle.end - now, 0);
   const percent = totalMs ? clamp((elapsedMs / totalMs) * 100, 0, 100) : 0;
 
   return {
     percent,
-    dayStarted: now >= active.start && now <= active.end,
+    cycleStart: cycle.start,
+    dayStarted: now >= cycle.start && now <= cycle.end,
+    pastBedtime: Boolean(ended),
+    overtimeLong: ended ? formatDuration(now - ended.end, "long") : "",
     remainingMs,
     elapsedLong: formatDuration(elapsedMs, "long"),
     remainingLong: formatDuration(remainingMs, "long"),
@@ -1301,6 +1329,23 @@ function getActiveCycle(now, wakeTime, bedTime) {
   }
 
   return cycles[cycles.length - 1];
+}
+
+// The usable day that ended before `now`, while `now` is in the first half of the
+// night after it. The second half of the night belongs to the next day, so an
+// early riser still sees "starts in", not "past bedtime".
+function getEndedCycle(now, wakeTime, bedTime, nextCycle) {
+  const ended = [-1, 0]
+    .map((offset) => buildCycle(now, wakeTime, bedTime, offset))
+    .filter((cycle) => cycle.end < now)
+    .pop();
+
+  if (!ended) {
+    return null;
+  }
+
+  const nightMidpoint = ended.end.getTime() + (nextCycle.start - ended.end) / 2;
+  return now.getTime() < nightMidpoint ? ended : null;
 }
 
 function getCurrentCycleStart(now) {
@@ -1409,6 +1454,16 @@ function formatMinutesAsWords(totalMinutes) {
   }
 
   return `${hours}h ${remainder}m`;
+}
+
+// Whether a check-in was made decides "Not logged", never the number itself:
+// a logged zero is the best possible answer, not a missing one.
+function formatScrollTax(recap) {
+  if (!isRecapLogged(recap)) {
+    return "Not logged";
+  }
+
+  return formatMinutesAsWords(recap.scrollingMinutes) || "0 min";
 }
 
 function loadSettings() {

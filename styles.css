@@ -235,7 +235,8 @@ h2 {
 }
 
 label,
-fieldset {
+fieldset,
+.time-wheel-label {
   display: grid;
   gap: 8px;
   margin: 0;
@@ -244,7 +245,8 @@ fieldset {
 }
 
 label span,
-legend {
+legend,
+.time-wheel-label > span {
   color: var(--muted);
   font-size: 0.9rem;
   font-weight: 750;
@@ -723,6 +725,8 @@ textarea::placeholder {
 }
 
 .time-wheel-label {
+  /* A div, not a <label>: a label wrapping the wheel forwards a tap on its
+     caption to the first wheel button, silently setting the value to 0. */
   min-width: 0;
 }
 

@@ -553,13 +553,11 @@ function validateRecapMetrics() {
     return true;
   }
 
+  // Hours and minutes answer one question, so moving either wheel sets the scroll time:
+  // 3h 00m leaves the minutes wheel on 00, and 0h 45m leaves the hours wheel on 0.
   const missing = [];
-  if (!recapMetricsTouched.hours) {
-    missing.push("hours");
-  }
-
-  if (!recapMetricsTouched.minutes) {
-    missing.push("minutes");
+  if (!recapMetricsTouched.hours && !recapMetricsTouched.minutes) {
+    missing.push("scroll time");
   }
 
   if (!recapMetricsTouched.goals) {
@@ -570,7 +568,7 @@ function validateRecapMetrics() {
     return true;
   }
 
-  showToast(`Fill ${missing.join(", ")} before validating.`);
+  showToast(`Set your ${missing.join(" and ")} before validating.`);
   return false;
 }
 

@@ -962,11 +962,7 @@ textarea::placeholder {
   overflow: hidden;
   border: 0;
   border-radius: 0;
-  background:
-    linear-gradient(145deg, rgba(121, 167, 211, 0.2), transparent 44%),
-    linear-gradient(24deg, rgba(240, 188, 103, 0.18), transparent 62%),
-    #101820;
-  box-shadow: inset 0 0 0 1px rgba(246, 241, 232, 0.04);
+  background: var(--bg);
 }
 
 .recap-story:focus-visible {
@@ -1009,36 +1005,271 @@ textarea::placeholder {
   display: none;
   min-height: 0;
   height: 100%;
-  padding: 30px 24px max(34px, env(safe-area-inset-bottom));
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: clamp(20px, 6dvh, 56px) 22px max(28px, env(safe-area-inset-bottom));
 }
 
 .recap-slide.is-active {
-  display: grid;
-  align-content: center;
-  gap: 16px;
+  display: flex;
+  flex-direction: column;
   animation: recap-in 360ms ease-out;
 }
 
-.recap-kicker {
+.recap-head {
+  display: grid;
+  gap: 12px;
+}
+
+.recap-slide .recap-kicker {
   margin: 0;
-  color: var(--gold);
-  font-size: 0.8rem;
-  font-weight: 900;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-.recap-slide h3 {
-  max-width: 100%;
+.recap-slide .recap-title {
   margin: 0;
   color: var(--ink);
-  font-size: clamp(3rem, 13vw, 5.9rem);
-  line-height: 0.95;
+  font-size: 2.75rem;
+  font-weight: 800;
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
   overflow-wrap: anywhere;
 }
 
-#recapStoryMessage {
-  font-size: clamp(2.6rem, 10vw, 4.9rem);
-  line-height: 1.04;
+.recap-numbered {
+  margin: 26px 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: recap-goal;
+}
+
+.recap-numbered li {
+  display: flex;
+  gap: 14px;
+  align-items: baseline;
+  padding: 13px 0;
+  border-top: 1px solid rgba(246, 241, 232, 0.12);
+  counter-increment: recap-goal;
+}
+
+.recap-numbered li:last-child {
+  border-bottom: 1px solid rgba(246, 241, 232, 0.12);
+}
+
+.recap-numbered li::before {
+  flex-shrink: 0;
+  width: 16px;
+  color: var(--green);
+  font-size: 0.9375rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  content: counter(recap-goal);
+}
+
+.recap-goal-text {
+  display: -webkit-box;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 1.1875rem;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.recap-unplanned {
+  display: grid;
+  gap: 16px;
+  margin-top: 26px;
+}
+
+.recap-slide .recap-unplanned p {
+  color: var(--muted);
+  font-size: 1.1875rem;
+  font-weight: 600;
+}
+
+.recap-why {
+  display: grid;
+  gap: 8px;
+  margin-top: 26px;
+}
+
+.recap-slide .recap-gold-label {
+  margin: 0;
+  color: var(--gold);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.recap-slide .recap-why-text {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 1.25rem;
+  font-weight: 500;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+}
+
+.recap-rows {
+  display: grid;
+  margin: 36px 0 0;
+}
+
+.recap-rows > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  padding: 14px 0;
+  border-top: 1px solid rgba(246, 241, 232, 0.12);
+}
+
+.recap-rows > div:last-child {
+  border-bottom: 1px solid rgba(246, 241, 232, 0.12);
+}
+
+.recap-rows dt {
+  color: var(--muted);
+  font-size: 1.0625rem;
+  font-weight: 500;
+}
+
+.recap-rows dd {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.1875rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.recap-slide .recap-source {
+  margin: auto 0 0;
+  padding-top: 16px;
+  color: var(--muted);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+/* Slide 1: the share of the day that is gone, very large. */
+.recap-head-day {
+  gap: 14px;
+}
+
+.recap-day-title {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  color: var(--ink);
+}
+
+.recap-day-percent {
+  font-size: 7.5rem;
+  font-weight: 800;
+  line-height: 0.86;
+  letter-spacing: -0.05em;
+  font-variant-numeric: tabular-nums;
+}
+
+.recap-day-caption {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.recap-rows dd.recap-day-left {
+  color: var(--blue);
+}
+
+/* Slide 2: one square per half-hour awake. Bright green is time well used, flat grey
+   went to the feed. */
+.recap-scroll-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.recap-squares {
+  display: grid;
+  grid-template-columns: repeat(11, minmax(0, 26px));
+  gap: 6px;
+  margin-top: 36px;
+}
+
+.recap-square {
+  aspect-ratio: 1;
+  border-radius: 5px;
+  background: var(--green);
+}
+
+.recap-square.is-wasted {
+  background: #5f686d;
+}
+
+.recap-slide .recap-squares-caption {
+  margin: 18px 0 0;
+  color: var(--muted);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.recap-rows.recap-rows-single {
+  margin-top: 26px;
+}
+
+/* Slide 3 and the no-check-in states. */
+.recap-slide .recap-no-plan {
+  margin: 26px 0 0;
+  color: var(--muted);
+  font-size: 1.1875rem;
+  font-weight: 600;
+}
+
+.recap-slide .recap-log-button {
+  flex-shrink: 0;
+  margin-top: 26px;
+}
+
+/* Phones under 800px of height: smaller title and one line per goal, so the bottom of
+   every slide stays on screen. The full slide 4, with four two-line goals and a
+   four-line reason, needs about 786px. */
+@media (max-height: 800px) {
+  .recap-slide .recap-title {
+    font-size: 2.25rem;
+  }
+
+  .recap-numbered li {
+    padding: 10px 0;
+  }
+
+  .recap-goal-text {
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+  }
+
+  .recap-slide .recap-why-text {
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
 }
 
 .recap-slide p {
@@ -1048,77 +1279,20 @@ textarea::placeholder {
   line-height: 1.35;
 }
 
-.recap-route,
-.recap-tax-meter,
-.recap-effort-bar {
-  height: 16px;
-  overflow: hidden;
-  border: 1px solid rgba(246, 241, 232, 0.12);
-  border-radius: 8px;
-  background: rgba(246, 241, 232, 0.1);
-}
-
-.recap-route span,
-.recap-tax-meter span,
-.recap-effort-bar span {
-  display: block;
-  width: 0;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, var(--blue), var(--gold), var(--red));
-  animation: meter-fill 680ms ease-out;
-}
-
-.recap-tax-meter span {
-  background: linear-gradient(90deg, var(--gold), var(--red));
-}
-
-.recap-effort-bar span {
-  background: linear-gradient(90deg, var(--red), var(--gold), var(--green));
-}
-
-.recap-metric-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin: 6px 0 0;
-}
-
-.recap-metric-row div {
-  border: 1px solid rgba(246, 241, 232, 0.14);
-  border-radius: 8px;
-  padding: 12px;
-  background: rgba(246, 241, 232, 0.06);
-}
-
-.recap-metric-row dt {
-  color: var(--muted);
-  font-size: 0.72rem;
-  font-weight: 900;
-  text-transform: uppercase;
-}
-
-.recap-metric-row dd {
-  margin: 4px 0 0;
-  color: var(--ink);
-  font-size: 1.25rem;
-  font-weight: 950;
-}
-
-.recap-tomorrow {
-  border-left: 4px solid var(--green);
-  padding: 12px 14px;
-  background: rgba(183, 214, 125, 0.1);
-}
-
 .recap-nav-actions {
   display: none;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
 }
 
-.recap-share-button {
-  margin-top: 10px;
+.recap-slide .recap-share-button {
+  flex-shrink: 0;
+  margin-top: auto;
+}
+
+.recap-slide-tomorrow .recap-why,
+.recap-slide-tomorrow .recap-unplanned {
+  margin-bottom: 20px;
 }
 
 .poster-share-panel {
@@ -1139,9 +1313,36 @@ textarea::placeholder {
   display: none;
 }
 
+/* The whole 9:16 poster shows, sized to leave room for the title and buttons. */
 .poster-share-panel .receipt-preview {
-  max-height: min(56vh, 560px);
-  overflow: auto;
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.poster-share-panel #receiptCanvas {
+  width: auto;
+  max-width: 100%;
+  height: min(calc(100dvh - 270px), 720px);
+  aspect-ratio: 1080 / 1920;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.poster-empty {
+  display: grid;
+  gap: 16px;
+  padding: 24px 0;
+}
+
+.poster-empty p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 1.1875rem;
+  font-weight: 600;
 }
 
 .history-list {
@@ -1216,18 +1417,6 @@ textarea::placeholder {
 
   to {
     width: 100%;
-  }
-}
-
-@keyframes meter-fill {
-  from {
-    transform: scaleX(0);
-    transform-origin: left;
-  }
-
-  to {
-    transform: scaleX(1);
-    transform-origin: left;
   }
 }
 

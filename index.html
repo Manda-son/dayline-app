@@ -153,6 +153,122 @@
       </section>
     </main>
 
+    <div class="modal-backdrop feature-backdrop" id="receiptModal" hidden>
+      <section class="modal-card feature-card" role="dialog" aria-modal="true" aria-labelledby="receiptTitle">
+        <button class="close-button" id="closeReceipt" type="button" aria-label="Close day recap" title="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+        <section class="receipt-section day-recap-section" aria-labelledby="receiptTitle">
+          <div class="section-heading compact">
+            <p class="eyebrow">Day recap</p>
+            <h2 id="receiptTitle">Your day, wrapped.</h2>
+          </div>
+
+          <div class="recap-story" id="dayRecapStory" role="region" tabindex="0" aria-label="Day recap story. Tap the left edge for previous, or the right edge for next." aria-live="polite">
+            <div class="story-progress" aria-hidden="true">
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+
+            <article class="recap-slide is-active" data-slide="0">
+              <div class="recap-head recap-head-day">
+                <p class="recap-kicker">Your day</p>
+                <h3 class="recap-day-title">
+                  <span class="recap-day-percent" id="recapDayPercent">0%</span>
+                  <span class="recap-day-caption">of your usable day is gone.</span>
+                </h3>
+              </div>
+              <dl class="recap-rows">
+                <div>
+                  <dt id="recapDayLeftLabel">Left before bed</dt>
+                  <dd class="recap-day-left" id="recapDayLeft">0 min</dd>
+                </div>
+                <div>
+                  <dt>Bedtime</dt>
+                  <dd id="recapDayBedtime">23:00</dd>
+                </div>
+              </dl>
+              <p class="recap-source" id="recapDayRange"></p>
+            </article>
+
+            <article class="recap-slide" data-slide="1" aria-hidden="true">
+              <div class="recap-head">
+                <p class="recap-kicker">Scroll time</p>
+                <h3 class="recap-title" id="recapScrollTitle">No scroll time logged yet.</h3>
+              </div>
+              <button class="primary-button recap-log-button" id="recapScrollLog" type="button">Run the reality check</button>
+              <div class="recap-scroll-body" id="recapScrollBody" hidden>
+                <div class="recap-squares" id="recapScrollGrid" role="img" aria-label="Your awake time in half-hours"></div>
+                <p class="recap-squares-caption">Each square is 30 minutes awake. The grey ones went to the feed.</p>
+                <dl class="recap-rows recap-rows-single">
+                  <div>
+                    <dt>Share of your awake time</dt>
+                    <dd id="recapScrollShare">0%</dd>
+                  </div>
+                </dl>
+                <p class="recap-source" id="recapScrollSource"></p>
+              </div>
+            </article>
+
+            <article class="recap-slide" data-slide="2" aria-hidden="true">
+              <div class="recap-head">
+                <p class="recap-kicker">Today's goals</p>
+                <h3 class="recap-title" id="recapGoalsTitle">Not rated yet.</h3>
+              </div>
+              <ol class="recap-numbered" id="recapTodayList" aria-label="Today's goals" hidden></ol>
+              <p class="recap-no-plan" id="recapNoPlan">No plan from last night.</p>
+              <div class="recap-why" id="recapRating" hidden>
+                <p class="recap-gold-label">Your rating</p>
+                <p class="recap-why-text" id="recapRatingText"></p>
+              </div>
+              <button class="primary-button recap-log-button" id="recapGoalsLog" type="button">Run the reality check</button>
+              <p class="recap-source" id="recapGoalsSource" hidden></p>
+            </article>
+
+            <article class="recap-slide recap-slide-tomorrow" data-slide="3" aria-hidden="true">
+              <div class="recap-head">
+                <p class="recap-kicker">Before you sleep</p>
+                <h3 class="recap-title">Tomorrow, on purpose.</h3>
+              </div>
+              <ol class="recap-numbered" id="recapGoalList" aria-label="Tomorrow's goals"></ol>
+              <div class="recap-unplanned" id="recapUnplanned" hidden>
+                <p>Tomorrow isn't planned yet.</p>
+                <button class="primary-button" id="writeTomorrowGoals" type="button">Write tomorrow's goals</button>
+              </div>
+              <div class="recap-why" id="recapWhy" hidden>
+                <p class="recap-gold-label">Why it matters</p>
+                <p class="recap-why-text" id="recapLongTermGoal"></p>
+              </div>
+              <button class="primary-button recap-share-button" id="showRecapPoster" type="button">Share recap</button>
+            </article>
+          </div>
+
+          <section class="poster-share-panel" id="posterSharePanel" aria-labelledby="posterShareTitle" hidden>
+            <div class="section-heading compact">
+              <p class="eyebrow">Share preview</p>
+              <h3 id="posterShareTitle">Poster ready.</h3>
+            </div>
+            <div class="poster-empty" id="posterEmpty" hidden>
+              <p>Log your scroll time to see your rank</p>
+              <button class="primary-button" id="posterLogScroll" type="button">Run the reality check</button>
+            </div>
+            <div class="receipt-preview" id="posterPreview">
+              <canvas id="receiptCanvas" width="1080" height="1920" aria-label="Day recap poster"></canvas>
+            </div>
+            <button class="primary-button full-button" id="sharePoster" type="button" disabled>Share</button>
+            <button class="secondary-button full-button" id="hideRecapPoster" type="button">Back to recap</button>
+          </section>
+
+          <div class="recap-nav-actions" aria-label="Day recap navigation" hidden>
+            <button class="secondary-button" id="recapPrev" type="button">Back</button>
+            <button class="secondary-button" id="recapNext" type="button">Next</button>
+          </div>
+        </section>
+      </section>
+    </div>
+
     <div class="modal-backdrop feature-backdrop" id="journalModal" hidden>
       <section class="modal-card feature-card" role="dialog" aria-modal="true" aria-labelledby="journalTitle">
         <button class="close-button" id="closeJournal" type="button" aria-label="Close night journal" title="Close">
@@ -174,100 +290,13 @@
             </label>
             <label>
               <span>Tomorrow's goals</span>
-              <textarea id="tomorrowGoals" rows="3" placeholder="What are the concrete goals for tomorrow?"></textarea>
+              <textarea id="tomorrowGoals" rows="3" placeholder="One goal per line"></textarea>
             </label>
             <div class="form-actions">
               <button class="primary-button" type="submit">Save journal</button>
               <button class="secondary-button" id="clearJournal" type="button">Clear fields</button>
             </div>
           </form>
-        </section>
-      </section>
-    </div>
-
-    <div class="modal-backdrop feature-backdrop" id="receiptModal" hidden>
-      <section class="modal-card feature-card" role="dialog" aria-modal="true" aria-labelledby="receiptTitle">
-        <button class="close-button" id="closeReceipt" type="button" aria-label="Close day recap" title="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-        <section class="receipt-section day-recap-section" aria-labelledby="receiptTitle">
-          <div class="section-heading compact">
-            <p class="eyebrow">Day recap</p>
-            <h2 id="receiptTitle">Your day, wrapped.</h2>
-          </div>
-
-          <div class="recap-story" id="dayRecapStory" role="region" tabindex="0" aria-label="Day recap story. Tap the left edge for previous, or the right edge for next." aria-live="polite">
-            <div class="story-progress" aria-hidden="true">
-              <span></span>
-              <span></span>
-              <span></span>
-              <span></span>
-            </div>
-
-            <article class="recap-slide is-active" data-slide="0">
-              <p class="recap-kicker">Usable day</p>
-              <h3><span id="recapStoryPercent">0%</span> gone</h3>
-              <p id="recapStoryVerdict">The day is still moving.</p>
-              <div class="recap-route" aria-hidden="true">
-                <span id="recapStoryRoute"></span>
-              </div>
-              <dl class="recap-metric-row">
-                <div>
-                  <dt>Left</dt>
-                  <dd id="recapStoryTimeLeft">0h 00m</dd>
-                </div>
-                <div>
-                  <dt>Pace</dt>
-                  <dd id="recapStoryPace">Live</dd>
-                </div>
-              </dl>
-            </article>
-
-            <article class="recap-slide" data-slide="1" aria-hidden="true">
-              <p class="recap-kicker">Scroll tax</p>
-              <h3 id="recapStoryScroll">Not logged</h3>
-              <p id="recapStoryScrollNote">Run a reality check to turn the recap into a real score.</p>
-              <div class="recap-tax-meter" aria-hidden="true">
-                <span id="recapStoryTaxFill"></span>
-              </div>
-            </article>
-
-            <article class="recap-slide" data-slide="2" aria-hidden="true">
-              <p class="recap-kicker">Goal work</p>
-              <h3><span id="recapStoryGoalScore">5</span>/10</h3>
-              <p id="recapStoryGoalDescriptor">Some real work</p>
-              <div class="recap-effort-bar" aria-hidden="true">
-                <span id="recapStoryGoalFill"></span>
-              </div>
-            </article>
-
-            <article class="recap-slide" data-slide="3" aria-hidden="true">
-              <p class="recap-kicker">Comeback window</p>
-              <h3 id="recapStoryMessage">You still have time.</h3>
-              <p class="recap-tomorrow" id="recapStoryTomorrow">Tomorrow is still unclaimed.</p>
-              <button class="primary-button recap-share-button" id="showRecapPoster" type="button">Share recap</button>
-            </article>
-          </div>
-
-          <section class="poster-share-panel" id="posterSharePanel" aria-labelledby="posterShareTitle" hidden>
-            <div class="section-heading compact">
-              <p class="eyebrow">Share preview</p>
-              <h3 id="posterShareTitle">Poster ready.</h3>
-            </div>
-            <div class="receipt-preview">
-              <canvas id="receiptCanvas" width="1080" height="1350" aria-label="Day recap poster"></canvas>
-            </div>
-            <div class="form-actions">
-              <button class="primary-button" id="downloadReceipt" type="button">Save poster</button>
-              <button class="secondary-button" id="copyReceipt" type="button">Copy caption</button>
-            </div>
-            <button class="secondary-button full-button" id="hideRecapPoster" type="button">Back to recap</button>
-          </section>
-
-          <div class="recap-nav-actions" aria-label="Day recap navigation" hidden>
-            <button class="secondary-button" id="recapPrev" type="button">Back</button>
-            <button class="secondary-button" id="recapNext" type="button">Next</button>
-          </div>
         </section>
       </section>
     </div>

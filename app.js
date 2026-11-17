@@ -108,23 +108,36 @@ const els = {
   recapNext: document.querySelector("#recapNext"),
   recapNavActions: document.querySelector(".recap-nav-actions"),
   posterSharePanel: document.querySelector("#posterSharePanel"),
+  posterShareTitle: document.querySelector("#posterShareTitle"),
+  posterEmpty: document.querySelector("#posterEmpty"),
+  posterLogScroll: document.querySelector("#posterLogScroll"),
+  posterPreview: document.querySelector("#posterPreview"),
   showRecapPoster: document.querySelector("#showRecapPoster"),
   hideRecapPoster: document.querySelector("#hideRecapPoster"),
-  recapStoryPercent: document.querySelector("#recapStoryPercent"),
-  recapStoryVerdict: document.querySelector("#recapStoryVerdict"),
-  recapStoryRoute: document.querySelector("#recapStoryRoute"),
-  recapStoryTimeLeft: document.querySelector("#recapStoryTimeLeft"),
-  recapStoryPace: document.querySelector("#recapStoryPace"),
-  recapStoryScroll: document.querySelector("#recapStoryScroll"),
-  recapStoryScrollNote: document.querySelector("#recapStoryScrollNote"),
-  recapStoryTaxFill: document.querySelector("#recapStoryTaxFill"),
-  recapStoryGoalScore: document.querySelector("#recapStoryGoalScore"),
-  recapStoryGoalDescriptor: document.querySelector("#recapStoryGoalDescriptor"),
-  recapStoryGoalFill: document.querySelector("#recapStoryGoalFill"),
-  recapStoryMessage: document.querySelector("#recapStoryMessage"),
-  recapStoryTomorrow: document.querySelector("#recapStoryTomorrow"),
-  downloadReceipt: document.querySelector("#downloadReceipt"),
-  copyReceipt: document.querySelector("#copyReceipt"),
+  recapDayPercent: document.querySelector("#recapDayPercent"),
+  recapDayLeftLabel: document.querySelector("#recapDayLeftLabel"),
+  recapDayLeft: document.querySelector("#recapDayLeft"),
+  recapDayBedtime: document.querySelector("#recapDayBedtime"),
+  recapDayRange: document.querySelector("#recapDayRange"),
+  recapScrollTitle: document.querySelector("#recapScrollTitle"),
+  recapScrollBody: document.querySelector("#recapScrollBody"),
+  recapScrollGrid: document.querySelector("#recapScrollGrid"),
+  recapScrollShare: document.querySelector("#recapScrollShare"),
+  recapScrollSource: document.querySelector("#recapScrollSource"),
+  recapScrollLog: document.querySelector("#recapScrollLog"),
+  recapGoalsTitle: document.querySelector("#recapGoalsTitle"),
+  recapTodayList: document.querySelector("#recapTodayList"),
+  recapNoPlan: document.querySelector("#recapNoPlan"),
+  recapRating: document.querySelector("#recapRating"),
+  recapRatingText: document.querySelector("#recapRatingText"),
+  recapGoalsLog: document.querySelector("#recapGoalsLog"),
+  recapGoalsSource: document.querySelector("#recapGoalsSource"),
+  recapGoalList: document.querySelector("#recapGoalList"),
+  recapUnplanned: document.querySelector("#recapUnplanned"),
+  writeTomorrowGoals: document.querySelector("#writeTomorrowGoals"),
+  recapWhy: document.querySelector("#recapWhy"),
+  recapLongTermGoal: document.querySelector("#recapLongTermGoal"),
+  sharePoster: document.querySelector("#sharePoster"),
   copyTestReport: document.querySelector("#copyTestReport"),
   metricRecaps: document.querySelector("#metricRecaps"),
   metricJournals: document.querySelector("#metricJournals"),
@@ -198,15 +211,18 @@ function bindEvents() {
     showToast("Journal fields cleared.");
     renderReceipt(getDayStats(new Date()));
   });
-  els.downloadReceipt.addEventListener("click", downloadReceipt);
-  els.copyReceipt.addEventListener("click", copyReceiptText);
+  els.sharePoster.addEventListener("click", sharePoster);
   els.copyTestReport.addEventListener("click", copyTestReport);
   els.recapPrev.addEventListener("click", () => setActiveRecapSlide(activeRecapSlide - 1));
   els.recapNext.addEventListener("click", () => setActiveRecapSlide(activeRecapSlide + 1));
   els.dayRecapStory.addEventListener("click", handleRecapStoryTap);
   els.dayRecapStory.addEventListener("keydown", handleRecapStoryKeydown);
   els.showRecapPoster.addEventListener("click", showRecapPosterPanel);
+  els.writeTomorrowGoals.addEventListener("click", () => openFeatureModal("journal"));
   els.hideRecapPoster.addEventListener("click", hideRecapPosterPanel);
+  els.posterLogScroll.addEventListener("click", openRecapModal);
+  els.recapScrollLog.addEventListener("click", openRecapModal);
+  els.recapGoalsLog.addEventListener("click", openRecapModal);
 }
 
 function fillSettingsForm() {
@@ -387,6 +403,8 @@ function getHeroVerdict(dayPercent, scrollingMinutes, progressFeeling) {
 }
 
 function openRecapModal() {
+  // Always start from the day's saved totals, so an update changes only what moved.
+  fillRecapForm();
   renderGoalReminder();
   trackEvent("recap_opened");
   resetRecapMetricTouches();
@@ -398,7 +416,14 @@ function openRecapModal() {
 
 function closeRecapModal() {
   els.recapModal.hidden = true;
-  document.body.classList.remove("has-modal");
+  syncModalLock();
+}
+
+// The page stays locked while any modal is open, so closing the journal or the reality
+// check over the recap does not let the page scroll under it.
+function syncModalLock() {
+  const anyOpen = [...document.querySelectorAll(".modal-backdrop")].some((modal) => !modal.hidden);
+  document.body.classList.toggle("has-modal", anyOpen);
 }
 
 function openFeatureModal(feature) {
@@ -414,6 +439,10 @@ function openFeatureModal(feature) {
       trackEvent("recap_locked_tapped");
       return;
     }
+  }
+
+  if (feature === "journal" && !els.longTermGoals.value.trim()) {
+    els.longTermGoals.value = getLatestLongTermGoal();
   }
 
   trackEvent(`${feature}_opened`);
@@ -438,7 +467,7 @@ function closeFeatureModal(feature) {
   }
 
   modal.hidden = true;
-  document.body.classList.remove("has-modal");
+  syncModalLock();
 }
 
 function getFeatureModal(feature) {
@@ -518,6 +547,12 @@ function markRecapMetricTouched(inputName) {
 }
 
 function validateRecapMetrics() {
+  // The touch-every-control rule is for the day's first check-in. Updating a check-in
+  // made today saves straight away.
+  if (isRecapLogged(state.lastRecap) && isRecapCurrent(state.lastRecap, new Date())) {
+    return true;
+  }
+
   const missing = [];
   if (!recapMetricsTouched.hours) {
     missing.push("hours");
@@ -565,8 +600,10 @@ function getGoalWorkDescriptor(score) {
   return "Protected the day";
 }
 
+// The plan pinned in the reality check is slide 3's: last night's journal by the cycle,
+// so a plan written after midnight still counts.
 function renderGoalReminder() {
-  const goals = getTodayGoalsFromLastNight();
+  const goals = getTodayGoalsForDay(getDayStats(new Date()).cycleStart);
 
   if (!goals.length) {
     els.goalReminder.hidden = true;
@@ -578,23 +615,6 @@ function renderGoalReminder() {
   els.goalReminderList.innerHTML = goals
     .map((goal) => `<li>${escapeHtml(goal)}</li>`)
     .join("");
-}
-
-function getTodayGoalsFromLastNight() {
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const yesterdayStart = new Date(todayStart);
-  yesterdayStart.setDate(todayStart.getDate() - 1);
-  const todaysGoalsEntry = state.journals.find((entry) => {
-    const date = new Date(entry.date);
-    return date >= yesterdayStart && date < todayStart && (entry.tomorrowGoals || entry.tomorrowPlan);
-  });
-
-  if (!todaysGoalsEntry) {
-    return [];
-  }
-
-  return splitGoalLines(todaysGoalsEntry.tomorrowGoals || todaysGoalsEntry.tomorrowPlan).slice(0, 4);
 }
 
 // Split on line breaks, semicolons, bullets and spaced dashes (" - "), never on a
@@ -842,7 +862,7 @@ function showAwareness(awareness) {
 function closeAwarenessModal() {
   trackEvent("awareness_closed", { tone: state.currentTone });
   els.awarenessModal.hidden = true;
-  document.body.classList.remove("has-modal");
+  syncModalLock();
 }
 
 function handleJournalSubmit(event) {
@@ -869,6 +889,7 @@ function handleJournalSubmit(event) {
   });
   renderHistory();
   renderReceipt(getDayStats(new Date()));
+  renderRecapStory(getDayStats(new Date()));
   closeFeatureModal("journal");
   showToast("Journal saved. Recap updated.");
 }
@@ -900,40 +921,164 @@ function renderHistory() {
 }
 
 function renderRecapStory(stats) {
-  if (!els.recapStoryPercent) {
+  if (!els.recapDayPercent) {
     return;
   }
 
-  const latest = getDraftJournal();
-  const dayPercent = Math.round(stats.percent);
-  const logged = isRecapLogged(state.lastRecap);
-  const scrollMinutes = state.lastRecap.scrollingMinutes || 0;
-  const goalScore = getStoredGoalWorkScore();
-  const verdict = getReceiptVerdict(stats, state.lastRecap);
-  const scrollText = formatScrollTax(state.lastRecap);
-  const scrollFill = Math.min(100, Math.round((scrollMinutes / 360) * 100));
-  const pace = stats.pastBedtime
-    ? "Past bedtime"
-    : dayPercent >= 80 ? "Final stretch" : dayPercent >= 55 ? "Middle heat" : "Early window";
-  const message = state.currentMessage || "You still have time. Spend it like it counts.";
-  const tomorrow = latest.tomorrowGoals || "Tomorrow is still unclaimed.";
+  renderDaySlide(stats);
+  renderScrollSlide();
+  renderGoalsSlide(stats);
+  renderTomorrowSlide(stats);
+}
 
-  els.recapStoryPercent.textContent = `${dayPercent}%`;
-  els.recapStoryVerdict.textContent = verdict.subtitle;
-  els.recapStoryRoute.style.width = `${dayPercent}%`;
-  els.recapStoryTimeLeft.textContent = stats.remainingShort;
-  els.recapStoryPace.textContent = pace;
-  els.recapStoryScroll.textContent = scrollText;
-  els.recapStoryScrollNote.textContent = logged
-    ? `${scrollMinutes} minutes pulled out of the day.`
-    : "Run a reality check to turn the recap into a real score.";
-  els.recapStoryTaxFill.style.width = `${scrollFill}%`;
-  // No reality check, no score: never present the slider's default as the user's answer.
-  els.recapStoryGoalScore.textContent = logged ? String(goalScore) : "\u2013";
-  els.recapStoryGoalDescriptor.textContent = logged ? getGoalWorkDescriptor(goalScore) : "No score without a reality check.";
-  els.recapStoryGoalFill.style.width = logged ? `${goalScore * 10}%` : "0%";
-  els.recapStoryMessage.textContent = message;
-  els.recapStoryTomorrow.textContent = tomorrow;
+// Assigns only real changes: the story is aria-live and tick() renders it every second.
+function setText(element, text) {
+  if (element.textContent !== text) {
+    element.textContent = text;
+  }
+}
+
+// Slide 1: how much of the usable day is gone, from the settings alone.
+function renderDaySlide(stats) {
+  const { wakeTime, bedTime } = state.settings;
+  const minutes = Math.floor((stats.pastBedtime ? stats.overtimeMs : stats.remainingMs) / 60000);
+  setText(els.recapDayPercent, `${Math.round(stats.percent)}%`);
+  setText(els.recapDayLeftLabel, stats.pastBedtime ? "Past bedtime by" : "Left before bed");
+  setText(els.recapDayLeft, formatPosterMinutes(minutes));
+  setText(els.recapDayBedtime, bedTime);
+  setText(els.recapDayRange, `Your day runs ${wakeTime} to ${bedTime}, from your settings.`);
+}
+
+// Slide 2: one square per half-hour awake, the wasted ones last and grey. They say how
+// much went to the feed, not when. No check-in, no squares.
+function renderScrollSlide() {
+  const logged = isRecapLogged(state.lastRecap);
+  els.recapScrollBody.hidden = !logged;
+  els.recapScrollLog.hidden = logged;
+  if (!logged) {
+    setText(els.recapScrollTitle, "No scroll time logged yet.");
+    renderHalfHourSquares({ total: 0, wasted: 0 });
+    return;
+  }
+
+  const split = getDaySplit(state.lastRecap.scrollingMinutes || 0, state.settings.wakeTime, state.settings.bedTime);
+  const savedAt = new Date(state.lastRecap.date);
+  const hasTime = Boolean(state.lastRecap.date) && !Number.isNaN(savedAt.getTime());
+  setText(els.recapScrollTitle, split.wasted > 0 ? `The feed took ${formatPosterMinutes(split.wasted)}.` : "The feed took nothing.");
+  setText(els.recapScrollShare, split.share);
+  renderHalfHourSquares(getHalfHourSquares(split.usable, split.wasted));
+  els.recapScrollSource.hidden = !hasTime;
+  setText(els.recapScrollSource, hasTime ? `From your check-in at ${formatClock(savedAt)}.` : "");
+}
+
+function getHalfHourSquares(usableMinutes, scrollingMinutes) {
+  const total = Math.max(1, Math.round(usableMinutes / 30));
+  return { total, wasted: clamp(Math.round(scrollingMinutes / 30), 0, total) };
+}
+
+function renderHalfHourSquares({ total, wasted }) {
+  const key = `${total}:${wasted}`;
+  if (els.recapScrollGrid.dataset.key === key) {
+    return;
+  }
+
+  els.recapScrollGrid.dataset.key = key;
+  els.recapScrollGrid.replaceChildren(
+    ...Array.from({ length: total }, (_, index) => {
+      const square = document.createElement("span");
+      square.className = index >= total - wasted ? "recap-square is-wasted" : "recap-square";
+      return square;
+    })
+  );
+  els.recapScrollGrid.setAttribute("aria-label", `${total} squares of 30 minutes for your awake time: ${total - wasted} well used, ${wasted} went to the feed.`);
+}
+
+// Slide 3: last night's plan for today, with the user's own score for the day.
+function renderGoalsSlide(stats) {
+  const logged = isRecapLogged(state.lastRecap);
+  const score = getStoredGoalWorkScore();
+  const goals = getTodayGoalsForDay(stats.cycleStart);
+  const planned = goals.length > 0;
+  const listKey = JSON.stringify(goals);
+
+  if (els.recapTodayList.dataset.key !== listKey) {
+    els.recapTodayList.dataset.key = listKey;
+    els.recapTodayList.replaceChildren(...goals.map(createRecapGoalItem));
+  }
+
+  setText(els.recapGoalsTitle, !logged ? "Not rated yet." : planned ? `${score}/10 on today's plan.` : `${score}/10 on your goals.`);
+  els.recapTodayList.hidden = !planned;
+  els.recapNoPlan.hidden = planned;
+  els.recapRating.hidden = !logged;
+  setText(els.recapRatingText, logged ? `${getGoalWorkDescriptor(score)}.` : "");
+  els.recapGoalsLog.hidden = logged;
+
+  const source = [planned ? "Planned in last night's journal." : "", logged ? "The score is your own rating." : ""].filter(Boolean).join(" ");
+  els.recapGoalsSource.hidden = !source;
+  setText(els.recapGoalsSource, source);
+}
+
+// Slide 4: tomorrow's goals from the journal saved during the recapped day, and the
+// long-term goal as the reason. Only saved journals count, never text still in the form.
+function renderTomorrowSlide(stats) {
+  const goals = getTomorrowGoalsForDay(stats.cycleStart);
+  const longTermGoal = getLatestLongTermGoal();
+  const key = JSON.stringify([goals, longTermGoal]);
+  if (els.recapGoalList.dataset.key === key) {
+    return;
+  }
+
+  els.recapGoalList.dataset.key = key;
+  els.recapGoalList.replaceChildren(...goals.map(createRecapGoalItem));
+  els.recapGoalList.hidden = goals.length === 0;
+  els.recapUnplanned.hidden = goals.length > 0;
+  els.recapLongTermGoal.textContent = longTermGoal;
+  els.recapWhy.hidden = !longTermGoal;
+  els.showRecapPoster.classList.toggle("primary-button", goals.length > 0);
+  els.showRecapPoster.classList.toggle("secondary-button", goals.length === 0);
+}
+
+function createRecapGoalItem(goal) {
+  const item = document.createElement("li");
+  const text = document.createElement("span");
+  text.className = "recap-goal-text";
+  text.textContent = goal;
+  item.append(text);
+  return item;
+}
+
+// The goals for tomorrow from the newest saved journal whose date passes `inWindow`,
+// at most 4.
+function getGoalsFromNewestJournal(inWindow) {
+  const entry = state.journals
+    .filter((item) => {
+      const date = new Date(item.date);
+      return !Number.isNaN(date.getTime()) && inWindow(date) && String(item.tomorrowGoals || item.tomorrowPlan || "").trim();
+    })
+    .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+
+  return entry ? splitGoalLines(entry.tomorrowGoals || entry.tomorrowPlan).slice(0, 4) : [];
+}
+
+// A journal saved after midnight still belongs to the day being recapped when that day
+// crosses midnight, because the day starts at cycleStart, not at 00:00.
+function getTomorrowGoalsForDay(cycleStart) {
+  return getGoalsFromNewestJournal((date) => date >= cycleStart);
+}
+
+// Today's plan: the goals for tomorrow saved in the 24 hours before the day started,
+// usually last night's journal. A late owl's journal from after midnight still counts.
+function getTodayGoalsForDay(cycleStart) {
+  const start = new Date(cycleStart).getTime();
+  return getGoalsFromNewestJournal((date) => date.getTime() >= start - 24 * 60 * 60 * 1000 && date.getTime() < start);
+}
+
+function getLatestLongTermGoal() {
+  const entry = [...state.journals]
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .find((item) => String(item.longTermGoals || item.currentGoals || "").trim());
+
+  return entry ? String(entry.longTermGoals || entry.currentGoals).trim() : "";
 }
 
 function setActiveRecapSlide(index) {
@@ -985,11 +1130,16 @@ function handleRecapStoryKeydown(event) {
   }
 }
 
+// Shows the poster at once (with fallback fonts if Archivo is not loaded yet), then
+// redraws it once the fonts are in.
 function showRecapPosterPanel() {
-  renderReceipt(getDayStats(new Date()));
   els.dayRecapStory.hidden = true;
   els.posterSharePanel.hidden = false;
   trackEvent("recap_share_previewed");
+  renderReceipt(getDayStats(new Date()), { force: true });
+  return loadPosterFonts().then(() => {
+    renderReceipt(getDayStats(new Date()));
+  });
 }
 
 function hideRecapPosterPanel() {
@@ -997,175 +1147,333 @@ function hideRecapPosterPanel() {
   els.dayRecapStory.hidden = false;
 }
 
-function renderReceipt(stats) {
-  const canvas = els.receiptCanvas;
-  const ctx = canvas.getContext("2d");
-  const width = canvas.width;
-  const height = canvas.height;
-  const dayPercent = Math.round(stats.percent);
-  const logged = isRecapLogged(state.lastRecap);
-  const scrollText = formatScrollTax(state.lastRecap);
-  const verdict = getReceiptVerdict(stats, state.lastRecap);
-  const productivityScore = getProductivityScore(stats, state.lastRecap);
-  const feedback = logged
-    ? getPosterFeedback(stats, state.lastRecap, productivityScore)
-    : "No reality check yet. Run one to put an honest score on today.";
+// Where the poster's circle sits. The tests read it, so keep it in step with drawPoster.
+const POSTER_CIRCLE = { cx: 320, cy: 996, radius: 240 };
+const POSTER_FALLBACK_FONTS = '"Arial Narrow", Arial, sans-serif';
+let lastPosterKey = null;
 
-  ctx.clearRect(0, 0, width, height);
-  ctx.textAlign = "left";
-  const bg = ctx.createLinearGradient(0, 0, width, height);
-  bg.addColorStop(0, "#0f171d");
-  bg.addColorStop(0.46, "#183039");
-  bg.addColorStop(0.78, "#2b2420");
-  bg.addColorStop(1, "#080d12");
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, width, height);
-
-  ctx.globalAlpha = 0.38;
-  ctx.strokeStyle = "#f0bc67";
-  ctx.lineWidth = 3;
-  for (let i = -1; i < 5; i += 1) {
-    ctx.beginPath();
-    ctx.moveTo(-120, 260 + i * 240);
-    ctx.lineTo(width + 140, -40 + i * 240);
-    ctx.stroke();
-  }
-  ctx.globalAlpha = 1;
-
-  drawRoundRect(ctx, 64, 64, width - 128, height - 128, 42, "rgba(246, 241, 232, 0.94)");
-  drawRoundRect(ctx, 92, 92, width - 184, height - 184, 26, "#101820");
-
-  drawRoundRect(ctx, 130, 130, 250, 58, 29, "rgba(240, 188, 103, 0.16)", "rgba(240, 188, 103, 0.6)");
-  ctx.fillStyle = "#f0bc67";
-  ctx.font = "900 28px Arial";
-  ctx.fillText("DAYLINE", 164, 169);
-
-  ctx.fillStyle = "#b8c2bf";
-  ctx.font = "700 28px Arial";
-  ctx.textAlign = "right";
-  // The day being recapped, not the calendar date: after midnight they differ.
-  ctx.fillText(formatDate(stats.cycleStart), width - 130, 169);
-  ctx.textAlign = "left";
-
-  ctx.fillStyle = "#f6f1e8";
-  ctx.font = "900 66px Arial";
-  ctx.fillText(verdict.title, 130, 270);
-
-  ctx.fillStyle = "#b8c2bf";
-  ctx.font = "700 30px Arial";
-  ctx.fillText(verdict.subtitle, 130, 315);
-
-  ctx.fillStyle = "#f6f1e8";
-  ctx.font = "900 210px Arial";
-  ctx.fillText(`${dayPercent}%`, 122, 540);
-
-  ctx.fillStyle = "#b8c2bf";
-  ctx.font = "900 32px Arial";
-  ctx.fillText("OF YOUR USABLE DAY IS GONE", 135, 598);
-
-  drawRoundRect(ctx, 135, 645, 810, 36, 18, "rgba(246, 241, 232, 0.14)");
-  const fillWidth = Math.max(24, Math.min(810, (dayPercent / 100) * 810));
-  const bar = ctx.createLinearGradient(135, 645, 945, 645);
-  bar.addColorStop(0, "#79a7d3");
-  bar.addColorStop(0.58, "#f0bc67");
-  bar.addColorStop(1, "#ec7357");
-  drawRoundRect(ctx, 135, 645, fillWidth, 36, Math.min(18, fillWidth / 2), bar);
-
-  drawReceiptCard(ctx, 130, 730, 390, 155, "SCROLL TAX", scrollText, "#ec7357");
-  drawReceiptCard(ctx, 560, 730, 390, 155, "PRODUCTIVITY", logged ? `${productivityScore}/100` : "Not logged", "#b7d67d");
-
-  drawRoundRect(ctx, 130, 930, 820, 245, 24, "rgba(246, 241, 232, 0.08)", "rgba(246, 241, 232, 0.16)");
-  ctx.fillStyle = "#f0bc67";
-  ctx.font = "900 28px Arial";
-  ctx.fillText("HONEST FEEDBACK", 165, 980);
-  wrapCanvasText(ctx, feedback, 165, 1038, 745, 43, "#f6f1e8", "850 34px Arial", 4);
-
-  // Keep the footer inside the inner panel. The panel ends at y=1258 and the
-  // outer frame at y=1286, so anything drawn near y=1300 lands on the raw
-  // background outside the card and reads as clipped.
-  ctx.fillStyle = "#b8c2bf";
-  ctx.font = "800 25px Arial";
-  ctx.fillText("Dayline - Time Awareness", 130, 1218);
-  ctx.textAlign = "right";
-  ctx.fillStyle = "#f0bc67";
-  ctx.fillText("Post the proof.", width - 130, 1218);
-  ctx.textAlign = "left";
-}
-
-function drawReceiptCard(ctx, x, y, width, height, label, value, color) {
-  drawRoundRect(ctx, x, y, width, height, 28, "rgba(246, 241, 232, 0.08)", "rgba(246, 241, 232, 0.18)");
-  ctx.fillStyle = color;
-  ctx.font = "900 27px Arial";
-  ctx.fillText(label, x + 34, y + 52);
-  ctx.fillStyle = "#f6f1e8";
-  ctx.font = "900 56px Arial";
-  ctx.fillText(value, x + 34, y + 118);
-}
-
-function getReceiptVerdict(stats, recap) {
-  const dayUsed = Math.round(stats.percent);
-  const scrollingMinutes = recap.scrollingMinutes || 0;
-  const progressFeeling = recap.progressFeeling || "none";
-
-  if (scrollingMinutes >= 360) {
-    return {
-      title: "Today Got Expensive",
-      subtitle: "A public little invoice for the scroll tax."
-    };
+// What the poster shows, or null when the day has no check-in: no check-in, no rank.
+function getPosterModel(stats) {
+  if (!isRecapLogged(state.lastRecap)) {
+    return null;
   }
 
-  if (scrollingMinutes >= 180 || (dayUsed >= 70 && progressFeeling === "none")) {
-    return {
-      title: "Comeback Window",
-      subtitle: "The day is wounded, not dead."
-    };
-  }
-
-  if (progressFeeling === "solid" && scrollingMinutes < 90) {
-    return {
-      title: "Day Still Yours",
-      subtitle: "Proof that the scroll did not win this round."
-    };
-  }
-
+  const split = getDaySplit(state.lastRecap.scrollingMinutes || 0, state.settings.wakeTime, state.settings.bedTime);
+  const start = new Date(stats.cycleStart);
+  const pad = (value) => String(value).padStart(2, "0");
   return {
-    title: "Day Recap",
-    subtitle: "A story of where today went."
+    dateText: formatPosterDate(start),
+    fileDate: `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`,
+    rank: getRank(getStoredGoalWorkScore(), split.wasted),
+    split
   };
 }
 
-function getProductivityScore(stats, recap) {
-  const goalWorkScore = Number.isFinite(Number.parseInt(recap.goalWorkScore, 10))
-    ? Number.parseInt(recap.goalWorkScore, 10)
-    : getScoreFromProgressFeeling(recap.progressFeeling || "light");
-  const scrollingMinutes = recap.scrollingMinutes || 0;
-  const scrollPenalty = Math.min(42, Math.round(scrollingMinutes / 10));
-  const lateLowProgressPenalty = stats.percent >= 75 && goalWorkScore <= 3 ? 12 : 0;
+// Draws only while the share panel is open, and only when the poster's data or fonts
+// changed, so tick() no longer repaints it every second (B6).
+function renderReceipt(stats, options = {}) {
+  if (!options.force && els.posterSharePanel.hidden) {
+    return false;
+  }
 
-  return clamp(Math.round(goalWorkScore * 10 - scrollPenalty - lateLowProgressPenalty), 0, 100);
+  const model = getPosterModel(stats);
+  const key = JSON.stringify([model, posterFontsReady]);
+  if (!options.force && key === lastPosterKey) {
+    return false;
+  }
+
+  lastPosterKey = key;
+  els.posterEmpty.hidden = Boolean(model);
+  els.posterPreview.hidden = !model;
+  els.posterShareTitle.textContent = model ? "Poster ready." : "No poster yet.";
+  if (!model) {
+    posterFile = null;
+    posterFilePromise = Promise.resolve(null);
+    updateShareButton();
+    return false;
+  }
+
+  drawPoster(els.receiptCanvas.getContext("2d"), model);
+  preparePosterFile(model.fileDate);
+  return true;
 }
 
-function getPosterFeedback(stats, recap, productivityScore) {
-  const dayUsed = Math.round(stats.percent);
-  const scrollingMinutes = recap.scrollingMinutes || 0;
+let posterFile = null;
+let posterFilePromise = Promise.resolve(null);
 
-  if (productivityScore >= 80) {
-    return "Strong day. You protected the important work and kept the scroll from owning the scoreboard.";
+// The PNG is made right after each draw, so a tap can share it at once: iOS only lets
+// navigator.share run straight from the tap, with no slow work before it.
+function preparePosterFile(fileDate) {
+  posterFile = null;
+  updateShareButton();
+  const request = new Promise((resolve) => {
+    els.receiptCanvas.toBlob((blob) => {
+      resolve(blob ? new File([blob], `dayline-${fileDate}.png`, { type: "image/png" }) : null);
+    }, "image/png");
+  }).then((file) => {
+    // A newer draw may have started meanwhile; only the latest file counts.
+    if (posterFilePromise === request) {
+      posterFile = file;
+      updateShareButton();
+    }
+    return file;
+  });
+  posterFilePromise = request;
+  return request;
+}
+
+function canSharePosterFile() {
+  return Boolean(posterFile && navigator.canShare && navigator.canShare({ files: [posterFile] }));
+}
+
+function updateShareButton() {
+  els.sharePoster.hidden = els.posterPreview.hidden;
+  els.sharePoster.disabled = !posterFile;
+  els.sharePoster.textContent = canSharePosterFile() ? "Share" : "Save image";
+}
+
+// Shares the image alone, with no text or link: Stories and chats take the image as is.
+// A cancel does nothing; any other failure saves the image instead.
+// A tap while the share sheet is still open does nothing: browsers reject a second
+// share with InvalidStateError, which must not count as a failure.
+let posterShareOpen = false;
+
+async function sharePoster() {
+  if (!posterFile || posterShareOpen) {
+    return;
   }
 
-  if (productivityScore >= 60) {
-    return "Solid day. There was drift, but the important work still got enough oxygen to count.";
+  if (!canSharePosterFile()) {
+    downloadReceipt();
+    return;
   }
 
-  if (productivityScore >= 40) {
-    return `${dayUsed}% of the day is gone. Mixed result: some effort showed up, but the scroll took too much space.`;
+  posterShareOpen = true;
+  try {
+    await navigator.share({ files: [posterFile] });
+    trackEvent("poster_shared");
+  } catch (error) {
+    if (error && (error.name === "AbortError" || error.name === "InvalidStateError")) {
+      return;
+    }
+
+    downloadReceipt();
+    showToast("Sharing did not work here, so the image was saved instead.");
+  } finally {
+    posterShareOpen = false;
+  }
+}
+
+// The 1080x1920 rank poster. Positions follow the mockup's flow: text stays inside
+// x 80-1000 and y 280-1440, clear of the Stories interface.
+function drawPoster(ctx, model) {
+  const { rank, split } = model;
+  const left = 80;
+  const right = 1000;
+  const tint = rank.ink === "#FFFFFF" ? "rgba(255, 255, 255, 0.3)" : "rgba(0, 0, 0, 0.3)";
+
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = rank.color;
+  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  ctx.fillStyle = rank.ink;
+
+  setPosterFont(ctx, '600 38px "Archivo"');
+  ctx.fillText(model.dateText, left, 313);
+
+  // The rank, on up to two lines, shrinks until its longest line fits the column.
+  let size = 150;
+  const widest = () => Math.max(...rank.lines.map((line) => ctx.measureText(line).width));
+  setPosterFont(ctx, `900 ${size}px "Archivo Display"`, -0.03 * size);
+  while (size > 40 && widest() > right - left) {
+    size -= 2;
+    setPosterFont(ctx, `900 ${size}px "Archivo Display"`, -0.03 * size);
+  }
+  const rankTop = 339;
+  const step = Math.round((132 * size) / 150);
+  const firstBaseline = rankTop + Math.round((116 * size) / 150);
+  rank.lines.forEach((line, index) => ctx.fillText(line, left, firstBaseline + index * step));
+
+  // Five-step meter, then "Rank N of 5".
+  const meterTop = rankTop + step * rank.lines.length + 22;
+  ctx.lineWidth = 3;
+  for (let index = 0; index < 5; index += 1) {
+    const x = left + index * 64;
+    if (index < rank.tier) {
+      drawRoundRect(ctx, x, meterTop + 10, 56, 14, 3, rank.ink, null);
+    } else {
+      drawRoundRect(ctx, x + 1.5, meterTop + 11.5, 53, 11, 1.5, null, rank.ink);
+    }
+  }
+  setPosterFont(ctx, '600 32px "Archivo"');
+  ctx.fillStyle = rank.ink;
+  ctx.fillText(`Rank ${rank.tier} of 5`, left + 5 * 56 + 4 * 8 + 18, meterTop + 28);
+
+  drawPosterCircle(ctx, split, rank, tint);
+  drawPosterNumbers(ctx, split, rank.ink, tint);
+
+  ctx.fillStyle = rank.ink;
+  setPosterFont(ctx, '900 60px "Archivo Wordmark"', -0.6);
+  ctx.fillText("Dayline", left, 1426);
+  setPosterFont(ctx, '500 28px "Archivo"');
+  ctx.textAlign = "right";
+  ctx.fillText("manda-son.github.io/dayline-app", right, 1426);
+  ctx.restore();
+}
+
+function setPosterFont(ctx, font, letterSpacingPx = 0) {
+  ctx.font = `${font}, ${POSTER_FALLBACK_FONTS}`;
+  if ("letterSpacing" in ctx) {
+    ctx.letterSpacing = `${letterSpacingPx}px`;
+  }
+}
+
+// One full circle for the 24 hours, clockwise from 12 o'clock: well used (solid ink),
+// wasted (ink stripes) and sleep (the ink at 30%). Sizes, not clock times.
+function drawPosterCircle(ctx, split, rank, tint) {
+  const { cx, cy, radius } = POSTER_CIRCLE;
+  const start = -Math.PI / 2;
+  const turn = (minutes) => (minutes / 1440) * Math.PI * 2;
+  const usedEnd = start + turn(split.used);
+  const wastedEnd = usedEnd + turn(split.wasted);
+  const slicePath = (from, to) => {
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, radius, from, to);
+    ctx.closePath();
+  };
+
+  if (split.used > 0) {
+    slicePath(start, usedEnd);
+    ctx.fillStyle = rank.ink;
+    ctx.fill();
   }
 
-  if (scrollingMinutes >= 240) {
-    return "Hard truth: the scroll got paid first. Tomorrow needs fewer promises and one protected work block.";
+  if (split.sleep > 0) {
+    slicePath(wastedEnd, start + Math.PI * 2);
+    ctx.fillStyle = tint;
+    ctx.fill();
   }
 
-  return "This was a low-output day. Do not dramatize it. Make the next block smaller, clearer, and harder to dodge.";
+  if (split.wasted > 0) {
+    ctx.save();
+    slicePath(usedEnd, wastedEnd);
+    ctx.clip();
+    drawPosterStripes(ctx, cx, cy, radius + 20, 5, 18, rank.ink);
+    ctx.restore();
+  }
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius - 2.5, 0, Math.PI * 2);
+  ctx.lineWidth = 5;
+  ctx.strokeStyle = rank.ink;
+  ctx.stroke();
+
+  // Gaps in the background colour between slices, drawn over the outline.
+  if ([split.used, split.wasted, split.sleep].filter((minutes) => minutes > 0).length >= 2) {
+    ctx.strokeStyle = rank.color;
+    ctx.lineWidth = 10;
+    ctx.lineCap = "butt";
+    [start, usedEnd, wastedEnd].forEach((angle) => {
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + (radius + 12) * Math.cos(angle), cy + (radius + 12) * Math.sin(angle));
+      ctx.stroke();
+    });
+  }
+}
+
+// Diagonal stripes like CSS repeating-linear-gradient(135deg, ink 0 band, transparent band period).
+function drawPosterStripes(ctx, cx, cy, reach, band, period, color) {
+  const diagonal = Math.SQRT1_2;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = band;
+  ctx.lineCap = "butt";
+  for (let offset = -reach; offset <= reach; offset += period) {
+    const middle = offset + band / 2;
+    const x = cx + middle * diagonal;
+    const y = cy + middle * diagonal;
+    ctx.beginPath();
+    ctx.moveTo(x - reach * diagonal, y + reach * diagonal);
+    ctx.lineTo(x + reach * diagonal, y - reach * diagonal);
+    ctx.stroke();
+  }
+}
+
+// The three numbers, stacked to the right of the circle and centred on it. They always
+// add up to 24h; the wasted one carries its share of the usable day in brackets.
+function drawPosterNumbers(ctx, split, ink, tint) {
+  const x = 616;
+  const right = 1000;
+  const numberFont = '900 76px "Archivo Numbers"';
+  const labelFont = '600 34px "Archivo"';
+  const numberLine = 68;
+  const shareLine = 38;
+  const labelLine = 37;
+  const blocks = [
+    { value: formatPosterMinutes(split.used), label: "well used", swatch: "solid" },
+    { value: formatPosterMinutes(split.wasted), label: "wasted", swatch: "stripes", share: `(${split.share})` },
+    { value: formatPosterMinutes(split.sleep), label: "sleep", swatch: "tint" }
+  ];
+
+  blocks.forEach((block) => {
+    setPosterFont(ctx, numberFont, -2.28);
+    block.numberWidth = ctx.measureText(block.value).width;
+    if (block.share) {
+      setPosterFont(ctx, labelFont);
+      block.wrap = x + block.numberWidth + 12 + ctx.measureText(block.share).width > right;
+    }
+    block.height = numberLine + (block.wrap ? shareLine : 0) + 8 + labelLine;
+  });
+
+  let top = POSTER_CIRCLE.cy - (blocks.reduce((sum, block) => sum + block.height, 0) + 40 * (blocks.length - 1)) / 2;
+  blocks.forEach((block) => {
+    const baseline = top + 60;
+    ctx.fillStyle = ink;
+    setPosterFont(ctx, numberFont, -2.28);
+    ctx.fillText(block.value, x, baseline);
+
+    let labelTop = top + numberLine + 8;
+    if (block.share) {
+      setPosterFont(ctx, labelFont);
+      if (block.wrap) {
+        ctx.fillText(block.share, x, baseline + 41);
+        labelTop += shareLine;
+      } else {
+        ctx.fillText(block.share, x + block.numberWidth + 12, baseline);
+      }
+    }
+
+    drawPosterSwatch(ctx, x + 14, labelTop + labelLine / 2, block.swatch, ink, tint);
+    ctx.fillStyle = ink;
+    setPosterFont(ctx, labelFont);
+    ctx.fillText(block.label, x + 40, labelTop + 30);
+    top += block.height + 40;
+  });
+}
+
+function drawPosterSwatch(ctx, cx, cy, kind, ink, tint) {
+  const radius = 14;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  if (kind === "solid" || kind === "tint") {
+    ctx.fillStyle = kind === "solid" ? ink : tint;
+    ctx.fill();
+  } else {
+    ctx.save();
+    ctx.clip();
+    drawPosterStripes(ctx, cx, cy, radius + 6, 3, 8, ink);
+    ctx.restore();
+  }
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius - 1.5, 0, Math.PI * 2);
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = ink;
+  ctx.stroke();
+  ctx.restore();
 }
 
 function drawRoundRect(ctx, x, y, width, height, radius, fill, stroke) {
@@ -1189,68 +1497,14 @@ function drawRoundRect(ctx, x, y, width, height, radius, fill, stroke) {
   }
 }
 
-function wrapCanvasText(ctx, text, x, y, maxWidth, lineHeight, color, font, maxLines = 4) {
-  ctx.font = font;
-  ctx.fillStyle = color;
-  const words = String(text).split(/\s+/).filter(Boolean);
-  let line = "";
-  let lineCount = 0;
-
-  for (const word of words) {
-    const testLine = line ? `${line} ${word}` : word;
-    if (ctx.measureText(testLine).width > maxWidth && line) {
-      ctx.fillText(line, x, y + lineCount * lineHeight);
-      line = word;
-      lineCount += 1;
-      if (lineCount === maxLines) {
-        ctx.fillText("...", x, y + lineCount * lineHeight);
-        return;
-      }
-    } else {
-      line = testLine;
-    }
-  }
-
-  if (line) {
-    ctx.fillText(line, x, y + lineCount * lineHeight);
-  }
-}
-
-function getDraftJournal() {
-  return {
-    longTermGoals: els.longTermGoals.value.trim() || state.journals[0]?.longTermGoals || state.journals[0]?.currentGoals || "",
-    dayReflection: els.dayReflection.value.trim() || state.journals[0]?.dayReflection || "",
-    tomorrowGoals: els.tomorrowGoals.value.trim() || state.journals[0]?.tomorrowGoals || state.journals[0]?.tomorrowPlan || ""
-  };
-}
-
 function downloadReceipt() {
+  const model = getPosterModel(getDayStats(new Date()));
   const link = document.createElement("a");
-  link.download = `dayline-recap-${new Date().toISOString().slice(0, 10)}.png`;
+  link.download = posterFile ? posterFile.name : `dayline-${model ? model.fileDate : new Date().toISOString().slice(0, 10)}.png`;
   link.href = els.receiptCanvas.toDataURL("image/png");
   link.click();
   trackEvent("receipt_saved");
   showToast("Recap poster saved.");
-}
-
-async function copyReceiptText() {
-  const stats = getDayStats(new Date());
-  const logged = isRecapLogged(state.lastRecap);
-  const scroll = logged ? formatScrollTax(state.lastRecap) : "not logged";
-  const productivity = logged ? `${getProductivityScore(stats, state.lastRecap)}/100` : "not logged";
-  const text = [
-    `Dayline wrapped my day: ${Math.round(stats.percent)}% of my usable day is gone.`,
-    `Scroll tax: ${scroll}. Productivity score: ${productivity}.`,
-    "Would you share your day recap?"
-  ].join("\n");
-
-  try {
-    await navigator.clipboard.writeText(text);
-    trackEvent("receipt_text_copied");
-    showToast("Recap caption copied.");
-  } catch {
-    showToast("Copy failed in this browser. The recap poster still works.");
-  }
 }
 
 async function copyTestReport() {
@@ -1278,7 +1532,7 @@ function buildTestReport() {
     `Time left: ${stats.remainingShort}`,
     `Recaps completed: ${counts.recap_completed || 0}`,
     `Journals saved: ${counts.journal_saved || 0}`,
-    `Recaps saved/copied: ${(counts.receipt_saved || 0) + (counts.receipt_text_copied || 0)}`,
+    `Recaps saved/shared: ${(counts.receipt_saved || 0) + (counts.poster_shared || 0)}`,
     `Last scrolling input: ${isRecapLogged(state.lastRecap) ? formatScrollTax(state.lastRecap) : "not logged"}`,
     "",
     "Recent events:",
@@ -1305,6 +1559,7 @@ function getDayStats(now) {
     cycleStart: cycle.start,
     dayStarted: now >= cycle.start && now <= cycle.end,
     pastBedtime: Boolean(ended),
+    overtimeMs: ended ? Math.max(0, now - ended.end) : 0,
     overtimeLong: ended ? formatDuration(now - ended.end, "long") : "",
     remainingMs,
     elapsedLong: formatDuration(elapsedMs, "long"),
@@ -1466,6 +1721,116 @@ function formatScrollTax(recap) {
   return formatMinutesAsWords(recap.scrollingMinutes) || "0 min";
 }
 
+// The poster's five ranks, lowest first. Rename them here; the colour is the poster's
+// background for that rank.
+const RANKS = [
+  { name: "Couch potato", color: "#2E4BFF" },
+  { name: "Scroll goblin", color: "#2E4BFF" },
+  { name: "Side-quest hero", color: "#FF7A45" },
+  { name: "Locked in", color: "#FFD23F" },
+  { name: "Final boss", color: "#FFD23F" }
+];
+
+// English on purpose, like the rest of the UI: Intl would follow the phone's language.
+const POSTER_DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const POSTER_MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+// Every 45 minutes of scrolling costs a point, up to 6, so a scroll-free day with no goal
+// work still ranks low and a heavy-scroll day can still climb with real work.
+function getRank(goalScore, wastedMinutes) {
+  const score = goalScore - Math.min(6, Math.floor(wastedMinutes / 45));
+  const tier = score <= 0 ? 1 : score <= 3 ? 2 : score <= 5 ? 3 : score <= 7 ? 4 : 5;
+  const { name, color } = RANKS[tier - 1];
+  const space = name.indexOf(" ");
+  const lines = space === -1 ? [name] : [name.slice(0, space), name.slice(space + 1)];
+  return { score, tier, name, lines, color, ink: getInk(color) };
+}
+
+// Black or white text, whichever reads better on the colour.
+function getInk(hex) {
+  const value = parseInt(hex.replace("#", ""), 16);
+  const red = (value >> 16) & 255;
+  const green = (value >> 8) & 255;
+  const blue = value & 255;
+  return (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255 > 0.5 ? "#000000" : "#FFFFFF";
+}
+
+// Wake-up to bedtime in minutes, crossing midnight when bedtime is earlier on the clock.
+// Settings never allow equal times; if they did, buildCycle would make it a 24-hour day.
+function getUsableMinutes(wakeTime, bedTime) {
+  const toMinutes = (time) => {
+    const [hours, minutes] = time.split(":").map(Number);
+    return hours * 60 + minutes;
+  };
+  return (toMinutes(bedTime) - toMinutes(wakeTime) + 1440) % 1440 || 1440;
+}
+
+// The whole 24 hours in three parts that always add up to 1440: well used, wasted
+// (the logged scroll time, never more than the usable day) and sleep (bedtime to wake-up).
+function getDaySplit(scrollingMinutes, wakeTime, bedTime) {
+  const usable = getUsableMinutes(wakeTime, bedTime);
+  const sleep = 1440 - usable;
+  const wasted = clamp(Math.round(Number(scrollingMinutes) || 0), 0, usable);
+  const used = usable - wasted;
+  const percent = Math.round((wasted / usable) * 100);
+  const share = wasted > 0 && percent === 0 ? "<1%" : `${percent}%`;
+  return { usable, sleep, wasted, used, share };
+}
+
+function formatClock(date) {
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+function formatPosterDate(date) {
+  return `${POSTER_DAY_NAMES[date.getDay()]} ${date.getDate()} ${POSTER_MONTH_NAMES[date.getMonth()]}`;
+}
+
+function formatPosterMinutes(totalMinutes) {
+  const minutes = Math.max(0, Math.round(totalMinutes));
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+
+  if (!hours) {
+    return `${remainder} min`;
+  }
+
+  return remainder ? `${hours}h ${String(remainder).padStart(2, "0")}m` : `${hours}h`;
+}
+
+// Archivo (Open Font License) ships with the app as one variable font. Each family pins
+// one width, so the canvas gets that width from a plain font string. A browser that
+// ignores the pinned width draws at normal width, which the design allows.
+const POSTER_FONT_URL = "fonts/archivo.woff2";
+const POSTER_FONTS = [
+  { family: "Archivo", stretch: "62% 125%" },
+  { family: "Archivo Display", stretch: "116%" },
+  { family: "Archivo Numbers", stretch: "96%" },
+  { family: "Archivo Wordmark", stretch: "68%" }
+];
+let posterFontsLoading = null;
+let posterFontsReady = false;
+
+// Loads the poster fonts once. Resolves false instead of rejecting, so the poster still
+// draws with the fallback fonts; a failed load is tried again next time.
+function loadPosterFonts() {
+  if (!posterFontsLoading) {
+    posterFontsLoading = (async () => {
+      try {
+        const faces = POSTER_FONTS.map(({ family, stretch }) => new FontFace(family, `url("${POSTER_FONT_URL}") format("woff2")`, { weight: "100 900", stretch }));
+        const loaded = await Promise.all(faces.map((face) => face.load()));
+        loaded.forEach((face) => document.fonts.add(face));
+        posterFontsReady = true;
+        return true;
+      } catch {
+        posterFontsLoading = null;
+        return false;
+      }
+    })();
+  }
+
+  return posterFontsLoading;
+}
+
 function loadSettings() {
   try {
     return { ...defaultSettings, ...JSON.parse(localStorage.getItem(STORAGE_KEY)) };
@@ -1520,7 +1885,7 @@ function trackEvent(name, details = {}) {
 function renderMetrics() {
   els.metricRecaps.textContent = String(state.metrics.counts.recap_completed || 0);
   els.metricJournals.textContent = String(state.metrics.counts.journal_saved || 0);
-  els.metricReceipts.textContent = String((state.metrics.counts.receipt_saved || 0) + (state.metrics.counts.receipt_text_copied || 0));
+  els.metricReceipts.textContent = String((state.metrics.counts.receipt_saved || 0) + (state.metrics.counts.poster_shared || 0));
 }
 
 function showToast(message) {

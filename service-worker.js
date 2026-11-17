@@ -1,4 +1,4 @@
-const CACHE_NAME = "dayline-mvp-v19";
+const CACHE_NAME = "dayline-mvp-v20";
 const APP_ASSETS = [
   "./",
   "./index.html",
@@ -7,7 +7,8 @@ const APP_ASSETS = [
   "./manifest.json",
   "./icon-192.png",
   "./icon-512.png",
-  "./icon.svg"
+  "./icon.svg",
+  "./fonts/archivo.woff2"
 ];
 
 self.addEventListener("install", (event) => {
